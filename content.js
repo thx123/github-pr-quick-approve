@@ -6,14 +6,18 @@
   // "mod" = Cmd on Mac, Alt on Windows/Linux
   const DEFAULT_SHORTCUT = { key: "u", mod: true, ctrlKey: false, shiftKey: true };
   let shortcut = DEFAULT_SHORTCUT;
+  let approveMessage = "";
+  let githubToken = "";
 
-  chrome.storage.sync.get({ shortcut: DEFAULT_SHORTCUT }, (data) => {
+  chrome.storage.sync.get({ shortcut: DEFAULT_SHORTCUT, approveMessage: "", githubToken: "" }, (data) => {
     shortcut = data.shortcut;
+    approveMessage = data.approveMessage;
+    githubToken = data.githubToken;
   });
   chrome.storage.onChanged.addListener((changes) => {
-    if (changes.shortcut) {
-      shortcut = changes.shortcut.newValue;
-    }
+    if (changes.shortcut) shortcut = changes.shortcut.newValue;
+    if (changes.approveMessage) approveMessage = changes.approveMessage.newValue;
+    if (changes.githubToken) githubToken = changes.githubToken.newValue;
   });
 
   function isPRPage() {
@@ -44,29 +48,10 @@
     }, 2500);
   }
 
-  async function getCSRFToken() {
-    const reviewForms = document.querySelectorAll('form[action$="/reviews"]');
-    for (const form of reviewForms) {
-      const token = form.querySelector('input[name="authenticity_token"]');
-      if (token) return token.value;
-    }
-
-    const resp = await fetch(window.location.href, { credentials: "same-origin" });
-    const html = await resp.text();
-    const doc = new DOMParser().parseFromString(html, "text/html");
-    const tokenEl = doc.querySelector('form[action$="/reviews"] input[name="authenticity_token"]');
-    if (tokenEl) return tokenEl.value;
-
-    return null;
-  }
-
-  function getReviewFormAction() {
-    const form = document.querySelector('form[action$="/reviews"]');
-    if (form) return form.getAttribute("action");
-
-    const match = window.location.pathname.match(/^(\/[^/]+\/[^/]+\/pull\/\d+)/);
-    if (match) return match[1] + "/reviews";
-    return null;
+  function parsePR() {
+    const match = window.location.pathname.match(/^\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
+    if (!match) return null;
+    return { owner: match[1], repo: match[2], number: match[3] };
   }
 
   async function approvePR() {
@@ -75,35 +60,42 @@
       return;
     }
 
-    const action = getReviewFormAction();
-    if (!action) {
-      showToast("Could not find review endpoint", false);
+    if (!githubToken) {
+      showToast("Set a GitHub token in extension options", false);
       return;
     }
 
-    const token = await getCSRFToken();
-    if (!token) {
-      showToast("Could not get CSRF token", false);
+    const pr = parsePR();
+    if (!pr) {
+      showToast("Could not parse PR from URL", false);
       return;
     }
 
-    const formData = new FormData();
-    formData.append("authenticity_token", token);
-    formData.append("pull_request_review[event]", "approve");
-    formData.append("pull_request_review[body]", "");
+    showToast("Approving...");
 
     try {
-      const resp = await fetch(action, {
-        method: "POST",
-        credentials: "same-origin",
-        body: formData,
-      });
+      const resp = await fetch(
+        `https://api.github.com/repos/${pr.owner}/${pr.repo}/pulls/${pr.number}/reviews`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${githubToken}`,
+            Accept: "application/vnd.github+json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            event: "APPROVE",
+            body: approveMessage || undefined,
+          }),
+        }
+      );
 
       if (resp.ok) {
         showToast("PR Approved!");
         setTimeout(() => window.location.reload(), 800);
       } else {
-        showToast(`Approve failed (${resp.status})`, false);
+        const data = await resp.json().catch(() => ({}));
+        showToast(`Approve failed: ${data.message || resp.status}`, false);
       }
     } catch (err) {
       showToast(`Error: ${err.message}`, false);

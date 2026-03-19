@@ -8,8 +8,44 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
       font-size: 14px;
       color: #1f2328;
-      padding: 20px;
+      padding: 40px 20px;
       min-width: 320px;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+    .welcome {
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #d1d9e0;
+    }
+    .welcome h1 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .welcome p {
+      color: #656d76;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #1a7f37;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      margin-right: 6px;
+      flex-shrink: 0;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 16px;
     }
     h2 {
       font-size: 16px;
@@ -26,22 +62,41 @@
       color: #656d76;
       margin-bottom: 12px;
     }
-    #shortcut-input {
+    input[type="text"], input[type="password"] {
       width: 100%;
       padding: 8px 12px;
       border: 1px solid #d1d9e0;
       border-radius: 6px;
       font-size: 14px;
-      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-      text-align: center;
-      cursor: pointer;
       background: #f6f8fa;
       outline: none;
     }
-    #shortcut-input:focus {
+    input[type="text"]:focus, input[type="password"]:focus {
       border-color: #0969da;
       box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3);
       background: #fff;
+    }
+    a { color: #0969da; }
+    .token-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .token-row input { flex: 1; }
+    .token-row button { white-space: nowrap; }
+    #token-status {
+      margin-top: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      min-height: 20px;
+    }
+    #token-status.valid { color: #1a7f37; }
+    #token-status.invalid { color: #cf222e; }
+    #token-status.checking { color: #656d76; }
+    #shortcut-input {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+      text-align: center;
+      cursor: pointer;
     }
     #shortcut-input.recording {
       border-color: #bf8700;
@@ -86,13 +141,42 @@
   </style>
 </head>
 <body>
-  <h2>Keybinding</h2>
+  <div class="welcome" id="welcome">
+    <h1>GitHub PR Quick Approve</h1>
+    <p>Approve pull requests with a single keyboard shortcut. Set up your token below to get started.</p>
+  </div>
+
+  <div class="section-header">
+    <span class="step-number">1</span>
+    <h2>GitHub Token</h2>
+  </div>
+  <label for="token-input">Personal Access Token</label>
+  <p class="hint">Required. Needs <strong>repo</strong> scope (classic) or <strong>Pull requests: Read and write</strong> (fine-grained).</p>
+  <div class="token-row">
+    <input id="token-input" type="password" placeholder="ghp_..." />
+    <button id="create-token-btn" title="Create a new token on GitHub">Create token</button>
+  </div>
+  <div id="token-status"></div>
+
+  <div class="section-header" style="margin-top: 24px;">
+    <span class="step-number">2</span>
+    <h2>Keybinding</h2>
+  </div>
   <label for="shortcut-input">Approve shortcut</label>
   <p class="hint">Click the field and press your desired key combination.</p>
   <input id="shortcut-input" type="text" readonly placeholder="Press a key combination..." />
+
+  <div class="section-header" style="margin-top: 24px;">
+    <span class="step-number">3</span>
+    <h2>Approval message</h2>
+  </div>
+  <label for="message-input">Review body</label>
+  <p class="hint">Leave empty for a silent approval, or add a message (e.g. "LGTM!").</p>
+  <input id="message-input" type="text" placeholder="" />
+
   <div class="buttons">
     <button class="primary" id="save-btn">Save</button>
-    <button id="reset-btn">Reset to default</button>
+    <button id="reset-btn">Reset to defaults</button>
   </div>
   <div class="status" id="status">Saved!</div>
   <script src="options.js"></script>
