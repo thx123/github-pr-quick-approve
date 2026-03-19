@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      color: #1f2328;
+      padding: 20px;
+      min-width: 320px;
+    }
+    h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+    .hint {
+      font-size: 12px;
+      color: #656d76;
+      margin-bottom: 12px;
+    }
+    #shortcut-input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #d1d9e0;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+      text-align: center;
+      cursor: pointer;
+      background: #f6f8fa;
+      outline: none;
+    }
+    #shortcut-input:focus {
+      border-color: #0969da;
+      box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3);
+      background: #fff;
+    }
+    #shortcut-input.recording {
+      border-color: #bf8700;
+      box-shadow: 0 0 0 3px rgba(191, 135, 0, 0.3);
+      background: #fff;
+    }
+    .status {
+      margin-top: 12px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      display: none;
+    }
+    .status.saved {
+      display: block;
+      background: #dafbe1;
+      color: #1a7f37;
+    }
+    .buttons {
+      margin-top: 16px;
+      display: flex;
+      gap: 8px;
+    }
+    button {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid #d1d9e0;
+      background: #f6f8fa;
+      color: #1f2328;
+    }
+    button:hover { background: #eaeef2; }
+    button.primary {
+      background: #1a7f37;
+      color: #fff;
+      border-color: #1a7f37;
+    }
+    button.primary:hover { background: #15692c; }
+  </style>
+</head>
+<body>
+  <h2>Keybinding</h2>
+  <label for="shortcut-input">Approve shortcut</label>
+  <p class="hint">Click the field and press your desired key combination.</p>
+  <input id="shortcut-input" type="text" readonly placeholder="Press a key combination..." />
+  <div class="buttons">
+    <button class="primary" id="save-btn">Save</button>
+    <button id="reset-btn">Reset to default</button>
+  </div>
+  <div class="status" id="status">Saved!</div>
+  <script src="options.js"></script>
+</body>
+</html>
