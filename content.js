@@ -112,17 +112,25 @@
     );
   }
 
-  document.addEventListener("keydown", (e) => {
-    const tag = e.target.tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA" || e.target.isContentEditable) {
-      return;
-    }
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      const hasModifier = e.metaKey || e.altKey || e.ctrlKey;
+      if (!hasModifier) {
+        const tag = e.target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || e.target.isContentEditable) {
+          return;
+        }
+      }
 
-    if (matchesShortcut(e)) {
-      e.preventDefault();
-      approvePR();
-    }
-  });
+      if (matchesShortcut(e)) {
+        e.preventDefault();
+        e.stopPropagation();
+        approvePR();
+      }
+    },
+    true
+  );
 
   console.log("[PR Quick Approve] Loaded — configure shortcut in extension options");
 })();

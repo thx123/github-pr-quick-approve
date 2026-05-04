@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GitHub PR Quick Approve",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Approve GitHub PRs with a configurable keyboard shortcut (via GitHub API)",
   "permissions": ["storage"],
   "host_permissions": ["https://api.github.com/*"],
