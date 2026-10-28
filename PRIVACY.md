@@ -18,4 +18,4 @@ No data is sent anywhere except the github.com pages you are already using. No a
 
 ## Contact
 
-For questions or concerns, open an issue at [github.com/be0x74a/github-pr-quick-approve](https://github.com/be0x74a/github-pr-quick-approve/issues).
+For questions or concerns, open an issue at [github.com/thx123/github-pr-quick-approve](https://github.com/thx123/github-pr-quick-approve/issues).
