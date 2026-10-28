@@ -4,9 +4,11 @@ A Chromium extension that approves the GitHub pull request you're reviewing with
 
 ## How to use
 
-1. Open a PR's **Files changed** tab and review it.
-2. Press the shortcut (default `⌘+⇧+U` on Mac, `Alt+Shift+U` on Windows/Linux).
+1. Open a PR and review it.
+2. Press the shortcut (default `⌘+⇧+U` on Mac, `Alt+Shift+U` on Windows/Linux) on any PR tab.
 3. The approval is submitted as if you'd used **Review changes → Approve → Submit review**, and GitHub shows the result.
+
+GitHub's review form only exists on the **Files changed** tab. Pressed anywhere else, the extension notes which commit that tab is showing, switches to Files changed, and finishes the approval there — refusing if Files changed shows a different commit.
 
 Anything you've typed in GitHub's review box is kept as the review body; otherwise your configured approval message is used. Pending review comments are submitted with it, just as with the normal button.
 
@@ -31,7 +33,9 @@ Both sync across your Chrome profiles.
 
 | Message | Meaning |
 | --- | --- |
-| `Open the Files changed tab to approve` | GitHub's review form only exists on that tab. |
+| `Switching to Files changed to approve...` | You pressed it on another tab; the approval finishes after the switch. |
+| `Switching to Files changed — press the shortcut again there` | The tab you were on didn't show which commit it was displaying, so it won't approve unattended. Press again once Files changed loads. |
+| `Couldn't find GitHub's review form on Files changed` | Files changed didn't show the review form within 10 seconds of switching. |
 | `PR has new commits since you loaded it — reload to review them` | Someone pushed after you opened the page. Reload and review the new commits. |
 | `GitHub won't let you approve this PR` | It's your own PR, it's closed or merged, or you lack permission. |
 | `Couldn't find GitHub's Approve option` | GitHub changed its page; the extension needs updating. |
@@ -41,7 +45,7 @@ Both sync across your Chrome profiles.
 The content script runs on github.com and acts only on PR pages, so it keeps working when GitHub switches pages without a full reload. On the shortcut it:
 
 1. Ignores synthetic key events, so page scripts and other extensions can't trigger it.
-2. Finds GitHub's review form (`#pull_requests_submit_review`) on the Files changed tab. The form carries `head_sha`, the commit the page is showing.
+2. Finds GitHub's review form (`#pull_requests_submit_review`) on the Files changed tab. The form carries `head_sha`, the commit the page is showing. On other tabs, it reads the commit from GitHub's embedded page data, saves it in the tab's `sessionStorage` for 30 seconds, and loads Files changed, which resumes the approval and requires that commit to match `head_sha`.
 3. Fetches the PR's `/commits` page with your session to read the latest head commit, and refuses if it differs from what you're viewing. If that page can't be read, it relies on the form's `head_sha`.
 4. Selects **Approve**, fills the message if the box is empty, and clicks GitHub's **Submit review** button.
 

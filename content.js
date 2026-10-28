@@ -8,10 +8,13 @@
   let shortcut = DEFAULT_SHORTCUT;
   let approveMessage = "";
 
-  chrome.storage.sync.get({ shortcut: DEFAULT_SHORTCUT, approveMessage: "" }, (data) => {
-    shortcut = data.shortcut;
-    approveMessage = data.approveMessage;
-  });
+  const settingsLoaded = new Promise((resolve) =>
+    chrome.storage.sync.get({ shortcut: DEFAULT_SHORTCUT, approveMessage: "" }, (data) => {
+      shortcut = data.shortcut;
+      approveMessage = data.approveMessage;
+      resolve();
+    })
+  );
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "sync") return;
     if (changes.shortcut) shortcut = changes.shortcut.newValue;
@@ -19,9 +22,68 @@
   });
 
   const PR_PATH = /^\/[^/]+\/[^/]+\/pull\/\d+/;
+  // Set before switching to Files changed so the approval can finish there.
+  const PENDING_KEY = "prQuickApprove.pending";
+  const PENDING_MAX_AGE_MS = 30000;
 
   function isPRPage() {
     return PR_PATH.test(window.location.pathname);
+  }
+
+  function prPath() {
+    return window.location.pathname.match(PR_PATH)[0];
+  }
+
+  // Head commit shown by tabs without the review form (e.g. Conversation),
+  // read from GitHub's embedded page data.
+  function headShaOnPage() {
+    for (const script of document.querySelectorAll("script")) {
+      const match = script.textContent.match(/"headSha":"([0-9a-f]{40})"/);
+      if (match) return match[1];
+    }
+    return null;
+  }
+
+  function switchToFilesTab() {
+    const sha = headShaOnPage();
+    if (sha) {
+      sessionStorage.setItem(PENDING_KEY, JSON.stringify({ path: prPath(), sha, at: Date.now() }));
+      showToast("Switching to Files changed to approve...");
+    } else {
+      // Without the commit you saw, don't approve unattended.
+      showToast("Switching to Files changed — press the shortcut again there");
+    }
+    window.location.assign(`${prPath()}/files`);
+  }
+
+  function waitForReviewForm(timeoutMs = 10000) {
+    return new Promise((resolve) => {
+      const started = Date.now();
+      const poll = () => {
+        const form = document.getElementById("pull_requests_submit_review");
+        if (form || Date.now() - started > timeoutMs) resolve(form);
+        else setTimeout(poll, 200);
+      };
+      poll();
+    });
+  }
+
+  async function resumePendingApproval() {
+    const raw = sessionStorage.getItem(PENDING_KEY);
+    if (!raw) return;
+    sessionStorage.removeItem(PENDING_KEY);
+    let pending;
+    try {
+      pending = JSON.parse(raw);
+    } catch {
+      return;
+    }
+    if (!isPRPage() || pending.path !== prPath() || Date.now() - pending.at > PENDING_MAX_AGE_MS) return;
+    if (!(await waitForReviewForm())) {
+      showToast("Couldn't find GitHub's review form on Files changed", false);
+      return;
+    }
+    approvePR(pending.sha);
   }
 
   function showToast(message, success = true) {
@@ -52,8 +114,7 @@
   // read. Uses your existing GitHub session; no token involved.
   async function currentHeadSha() {
     try {
-      const prPath = window.location.pathname.match(PR_PATH)[0];
-      const resp = await fetch(`${prPath}/commits`, { credentials: "same-origin" });
+      const resp = await fetch(`${prPath()}/commits`, { credentials: "same-origin" });
       if (!resp.ok) return null;
       const match = (await resp.text()).match(/"headSha":"([0-9a-f]{40})"/);
       return match ? match[1] : null;
@@ -64,11 +125,12 @@
 
   // Submits GitHub's own review form on the Files changed tab. The form
   // carries head_sha — the commit this page is showing — so the approval
-  // applies to what you've seen.
-  async function approvePR() {
+  // applies to what you've seen. `seenSha` is the commit shown on the tab
+  // you pressed the shortcut on, when that wasn't Files changed.
+  async function approvePR(seenSha = null) {
     const form = document.getElementById("pull_requests_submit_review");
     if (!form) {
-      showToast("Open the Files changed tab to approve", false);
+      switchToFilesTab();
       return;
     }
 
@@ -84,11 +146,15 @@
 
     const viewedSha = form.querySelector('input[name="head_sha"]')?.value;
     const latestSha = await currentHeadSha();
-    if (viewedSha && latestSha && viewedSha !== latestSha) {
+    const changed =
+      (seenSha && viewedSha && seenSha !== viewedSha) ||
+      (viewedSha && latestSha && viewedSha !== latestSha);
+    if (changed) {
       showToast("PR has new commits since you loaded it — reload to review them", false);
       return;
     }
 
+    await settingsLoaded;
     approve.checked = true;
     approve.dispatchEvent(new Event("change", { bubbles: true }));
 
@@ -140,6 +206,8 @@
     },
     true
   );
+
+  resumePendingApproval();
 
   console.log("[PR Quick Approve] Loaded — configure shortcut in extension options");
 })();
