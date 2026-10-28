@@ -3,8 +3,12 @@
 const isMac = navigator.platform.toUpperCase().includes("MAC");
 const DEFAULT_SHORTCUT = { key: "u", mod: true, ctrlKey: false, shiftKey: true };
 const DEFAULT_MESSAGE = "";
+// Fine-grained PAT limited to pull requests, with an expiry. Classic tokens with
+// "repo" scope grant full access to every repo the user can reach.
 const TOKEN_CREATE_URL =
-  "https://github.com/settings/tokens/new?scopes=repo&description=PR+Quick+Approve+Extension";
+  "https://github.com/settings/personal-access-tokens/new" +
+  "?name=PR+Quick+Approve&description=GitHub+PR+Quick+Approve+extension" +
+  "&expires_in=90&pull_requests=write";
 
 const welcomeEl = document.getElementById("welcome");
 const tokenInput = document.getElementById("token-input");
@@ -54,7 +58,10 @@ async function validateToken(token) {
         );
         return false;
       }
-      setTokenStatus(`Valid — ${user.login} (classic PAT, repo scope)`, "valid");
+      setTokenStatus(
+        `Valid — ${user.login} (classic PAT). Works, but "repo" grants full access to all your repos; a fine-grained token is safer.`,
+        "valid"
+      );
       return true;
     }
 
@@ -126,22 +133,30 @@ function hasModifier(s) {
 
 // --- Load / Save ---
 
+function showSaved() {
+  statusEl.classList.add("saved");
+  setTimeout(() => statusEl.classList.remove("saved"), 2000);
+}
+
 function loadSettings() {
   chrome.storage.sync.get(
-    { shortcut: DEFAULT_SHORTCUT, approveMessage: DEFAULT_MESSAGE, githubToken: "" },
+    { shortcut: DEFAULT_SHORTCUT, approveMessage: DEFAULT_MESSAGE },
     (data) => {
       pendingShortcut = data.shortcut;
       input.value = formatShortcut(data.shortcut);
       messageInput.value = data.approveMessage;
-      tokenInput.value = data.githubToken;
-
-      // Hide welcome banner if already configured
-      if (data.githubToken) {
-        welcomeEl.style.display = "none";
-        validateToken(data.githubToken);
-      }
     }
   );
+  // Token is device-local (not synced) and hidden from content scripts.
+  chrome.storage.local.get({ githubToken: "" }, ({ githubToken }) => {
+    tokenInput.value = githubToken;
+
+    // Hide welcome banner if already configured
+    if (githubToken) {
+      welcomeEl.style.display = "none";
+      validateToken(githubToken);
+    }
+  });
 }
 
 input.addEventListener("focus", () => {
@@ -179,32 +194,20 @@ saveBtn.addEventListener("click", async () => {
     if (!valid) return;
   }
 
-  chrome.storage.sync.set(
-    {
-      shortcut: pendingShortcut,
-      approveMessage: messageInput.value,
-      githubToken: token,
-    },
-    () => {
-      statusEl.classList.add("saved");
-      setTimeout(() => statusEl.classList.remove("saved"), 2000);
-    }
-  );
+  await chrome.storage.local.set({ githubToken: token });
+  await chrome.storage.sync.set({ shortcut: pendingShortcut, approveMessage: messageInput.value });
+  showSaved();
 });
 
-resetBtn.addEventListener("click", () => {
+resetBtn.addEventListener("click", async () => {
   pendingShortcut = DEFAULT_SHORTCUT;
   input.value = formatShortcut(DEFAULT_SHORTCUT);
   messageInput.value = DEFAULT_MESSAGE;
   tokenInput.value = "";
   setTokenStatus("", "");
-  chrome.storage.sync.set(
-    { shortcut: DEFAULT_SHORTCUT, approveMessage: DEFAULT_MESSAGE, githubToken: "" },
-    () => {
-      statusEl.classList.add("saved");
-      setTimeout(() => statusEl.classList.remove("saved"), 2000);
-    }
-  );
+  await chrome.storage.local.remove("githubToken");
+  await chrome.storage.sync.set({ shortcut: DEFAULT_SHORTCUT, approveMessage: DEFAULT_MESSAGE });
+  showSaved();
 });
 
 loadSettings();

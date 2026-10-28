@@ -151,7 +151,7 @@
     <h2>GitHub Token</h2>
   </div>
   <label for="token-input">Personal Access Token</label>
-  <p class="hint">Required. Needs <strong>repo</strong> scope (classic) or <strong>Pull requests: Read and write</strong> (fine-grained).</p>
+  <p class="hint">Required. Use a <strong>fine-grained</strong> token with only <strong>Pull requests: Read and write</strong>. "Create token" pre-fills this; on GitHub, set <strong>Resource owner</strong> to the org whose PRs you review and pick the repos. Classic tokens with <strong>repo</strong> scope also work but grant far broader access.</p>
   <div class="token-row">
     <input id="token-input" type="password" placeholder="ghp_..." />
     <button id="create-token-btn" title="Create a new token on GitHub">Create token</button>

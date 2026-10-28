@@ -4,11 +4,11 @@
 
 ## Data collected
 
-This extension stores the following data locally in your browser (via Chrome's synced storage):
+This extension stores the following data locally in your browser:
 
-- **GitHub Personal Access Token** — used to authenticate API requests
-- **Keyboard shortcut preference** — your configured keybinding
-- **Approval message** — your configured review body text
+- **GitHub Personal Access Token** — used to authenticate API requests (Chrome local storage, not synced)
+- **Keyboard shortcut preference** — your configured keybinding (Chrome synced storage)
+- **Approval message** — your configured review body text (Chrome synced storage)
 
 ## How data is used
 
@@ -18,7 +18,7 @@ This extension stores the following data locally in your browser (via Chrome's s
 
 ## Data storage
 
-All data is stored locally in your browser using Chrome's `storage.sync` API. If you are signed into Chrome, this data may sync across your devices via your Google account. You can clear all extension data by resetting to defaults in the extension options or by uninstalling the extension.
+Your token is stored with Chrome's `storage.local` API: it stays on this device and is not readable by the extension's scripts on github.com pages. Your shortcut and approval message use `storage.sync`, so if you are signed into Chrome they may sync across your devices via your Google account. You can clear all extension data by resetting to defaults in the extension options or by uninstalling the extension.
 
 ## Permissions
 

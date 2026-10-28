@@ -6,18 +6,15 @@
   // "mod" = Cmd on Mac, Alt on Windows/Linux
   const DEFAULT_SHORTCUT = { key: "u", mod: true, ctrlKey: false, shiftKey: true };
   let shortcut = DEFAULT_SHORTCUT;
-  let approveMessage = "";
-  let githubToken = "";
+  // Head commit of the PR when the page loaded: { key, sha }. Approval is
+  // pinned to this commit so new pushes can't be approved unseen.
+  let viewed = null;
 
-  chrome.storage.sync.get({ shortcut: DEFAULT_SHORTCUT, approveMessage: "", githubToken: "" }, (data) => {
+  chrome.storage.sync.get({ shortcut: DEFAULT_SHORTCUT }, (data) => {
     shortcut = data.shortcut;
-    approveMessage = data.approveMessage;
-    githubToken = data.githubToken;
   });
-  chrome.storage.onChanged.addListener((changes) => {
-    if (changes.shortcut) shortcut = changes.shortcut.newValue;
-    if (changes.approveMessage) approveMessage = changes.approveMessage.newValue;
-    if (changes.githubToken) githubToken = changes.githubToken.newValue;
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "sync" && changes.shortcut) shortcut = changes.shortcut.newValue;
   });
 
   function isPRPage() {
@@ -54,14 +51,25 @@
     return { owner: match[1], repo: match[2], number: match[3] };
   }
 
+  function prKey(pr) {
+    return `${pr.owner}/${pr.repo}#${pr.number}`;
+  }
+
+  function snapshotHead() {
+    const pr = parsePR();
+    if (!pr) return;
+    const key = prKey(pr);
+    if (viewed && viewed.key === key) return;
+    viewed = { key, sha: null };
+    chrome.runtime.sendMessage({ type: "getHeadSha", pr }, (resp) => {
+      if (chrome.runtime.lastError || !resp?.ok) return;
+      if (viewed && viewed.key === key) viewed.sha = resp.sha;
+    });
+  }
+
   async function approvePR() {
     if (!isPRPage()) {
       showToast("Not on a PR page", false);
-      return;
-    }
-
-    if (!githubToken) {
-      showToast("Set a GitHub token in extension options", false);
       return;
     }
 
@@ -71,31 +79,20 @@
       return;
     }
 
+    if (!viewed || viewed.key !== prKey(pr) || !viewed.sha) {
+      showToast("Couldn't confirm which commit you're viewing — reload the page", false);
+      return;
+    }
+
     showToast("Approving...");
 
     try {
-      const resp = await fetch(
-        `https://api.github.com/repos/${pr.owner}/${pr.repo}/pulls/${pr.number}/reviews`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${githubToken}`,
-            Accept: "application/vnd.github+json",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            event: "APPROVE",
-            body: approveMessage || undefined,
-          }),
-        }
-      );
-
-      if (resp.ok) {
+      const resp = await chrome.runtime.sendMessage({ type: "approve", pr, sha: viewed.sha });
+      if (resp?.ok) {
         showToast("PR Approved!");
         setTimeout(() => window.location.reload(), 800);
       } else {
-        const data = await resp.json().catch(() => ({}));
-        showToast(`Approve failed: ${data.message || resp.status}`, false);
+        showToast(`Approve failed: ${resp?.error || "unknown error"}`, false);
       }
     } catch (err) {
       showToast(`Error: ${err.message}`, false);
@@ -115,6 +112,9 @@
   document.addEventListener(
     "keydown",
     (e) => {
+      // Ignore synthetic events dispatched by page scripts or other extensions.
+      if (!e.isTrusted) return;
+
       const hasModifier = e.metaKey || e.altKey || e.ctrlKey;
       if (!hasModifier) {
         const tag = e.target.tagName;
@@ -131,6 +131,10 @@
     },
     true
   );
+
+  snapshotHead();
+  // GitHub navigates between PRs without full page loads.
+  window.navigation?.addEventListener("navigatesuccess", snapshotHead);
 
   console.log("[PR Quick Approve] Loaded — configure shortcut in extension options");
 })();

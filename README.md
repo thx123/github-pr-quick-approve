@@ -10,14 +10,15 @@ A Chromium extension that lets you approve GitHub pull requests with a single ke
 - **Custom approval message** — add "LGTM!", a custom note, or leave blank for silent approval
 - **Platform-aware defaults** — `⌘+⇧+U` on Mac, `Alt+Shift+U` on Windows/Linux
 - **Token validation** — verifies your GitHub token and scopes on save
-- **Guided setup** — one-click token creation with pre-filled scopes
+- **Guided setup** — one-click fine-grained token creation with pre-filled permissions
+- **Safe approvals** — approves only the commit you loaded; refuses if new commits were pushed since
 - **Visual feedback** — green toast notification on success
 
 ## Setup
 
 1. Install the extension (see [Install](#install) below)
 2. Open extension options (right-click icon → **Options**)
-3. Click **Create token** — this opens GitHub with pre-filled settings
+3. Click **Create token** — this opens GitHub with a pre-filled fine-grained token (Pull requests: Read and write, 90-day expiry). Set **Resource owner** to the org whose PRs you review and choose the repos.
 4. Generate the token on GitHub, copy it, and paste it back in the options page
 5. The token is validated automatically — you'll see a green confirmation with your username
 6. Click **Save**
@@ -52,7 +53,7 @@ Right-click the extension icon → **Options**, or go to:
 
 `chrome://extensions` → GitHub PR Quick Approve → **Details** → **Extension options**
 
-- **GitHub Token** — required. Classic PAT with `repo` scope, or fine-grained PAT with `Pull requests: Read and write`. Click "Create token" for guided setup.
+- **GitHub Token** — required. Fine-grained PAT with `Pull requests: Read and write` (recommended), or a classic PAT with `repo` scope (works, but grants full access to all your repos). Click "Create token" for guided setup.
 - **Shortcut** — click the input field, press your desired key combination (must include at least one modifier key)
 - **Approval message** — optionally set a review body (e.g. "LGTM!"). Leave empty for a silent approval.
 
@@ -60,13 +61,15 @@ Click **Save** to apply. The token is validated before saving.
 
 ## How it works
 
-The extension runs a content script on GitHub PR pages (`github.com/*/pull/*`). When triggered, it calls the [GitHub REST API](https://docs.github.com/en/rest/pulls/reviews#create-a-review-for-a-pull-request) to submit an approval review.
+The extension runs a content script on GitHub PR pages (`github.com/*/pull/*`). When triggered, it asks the background service worker to call the [GitHub REST API](https://docs.github.com/en/rest/pulls/reviews#create-a-review-for-a-pull-request) and submit an approval review.
+
+When a PR page loads, the extension records the PR's head commit. The approval is pinned to that commit, and is refused if the PR has received new commits since — reload to review them first.
 
 **Permissions:**
 - `storage` — saves your preferences (keybinding, message, token)
 - `host_permissions: api.github.com` — needed to call the GitHub API
 
-Your token is stored in Chrome's synced storage and is only sent to `api.github.com`. The extension has no background service worker and makes no other external requests.
+Your token is stored in Chrome's local (non-synced) storage, restricted so content scripts on github.com cannot read it. Only the background service worker uses it, and only to call `api.github.com`. The extension makes no other external requests. Synthetic keyboard events from page scripts are ignored.
 
 ## Development
 
