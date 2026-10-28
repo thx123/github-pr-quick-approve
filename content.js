@@ -6,7 +6,8 @@
   // "mod" = Cmd on Mac, Alt on Windows/Linux
   const DEFAULT_SHORTCUT = { key: "u", mod: true, ctrlKey: false, shiftKey: true };
   let shortcut = DEFAULT_SHORTCUT;
-  // Head commit of the PR when the page loaded: { key, sha, error }. Approval is
+  // Head commit of the PR when the page loaded: { key, result }, where result
+  // is a promise of { sha } or { error }. Approval is
   // pinned to this commit so new pushes can't be approved unseen.
   let viewed = null;
 
@@ -56,17 +57,17 @@
   }
 
   function snapshotHead() {
+    // After the extension is reloaded, this orphaned script can't message it.
+    if (!chrome.runtime?.id) return;
     const pr = parsePR();
     if (!pr) return;
     const key = prKey(pr);
     if (viewed && viewed.key === key) return;
-    viewed = { key, sha: null, error: null };
-    chrome.runtime.sendMessage({ type: "getHeadSha", pr }, (resp) => {
-      if (!viewed || viewed.key !== key) return;
-      if (chrome.runtime.lastError) viewed.error = chrome.runtime.lastError.message;
-      else if (!resp?.ok) viewed.error = resp?.error || "unknown error";
-      else viewed.sha = resp.sha;
-    });
+    const result = chrome.runtime
+      .sendMessage({ type: "getHeadSha", pr })
+      .then((resp) => (resp?.ok ? { sha: resp.sha } : { error: resp?.error || "unknown error" }))
+      .catch((err) => ({ error: err.message }));
+    viewed = { key, result };
   }
 
   async function approvePR() {
@@ -81,19 +82,22 @@
       return;
     }
 
-    if (viewed?.key === prKey(pr) && viewed.error) {
-      showToast(`Couldn't read PR from GitHub: ${viewed.error}`, false);
-      return;
-    }
-    if (!viewed || viewed.key !== prKey(pr) || !viewed.sha) {
+    if (!viewed || viewed.key !== prKey(pr)) {
       showToast("Couldn't confirm which commit you're viewing — reload the page", false);
       return;
     }
 
     showToast("Approving...");
 
+    // Wait for the page-load lookup if it's still in flight.
+    const head = await viewed.result;
+    if (head.error) {
+      showToast(`Couldn't read PR from GitHub: ${head.error}`, false);
+      return;
+    }
+
     try {
-      const resp = await chrome.runtime.sendMessage({ type: "approve", pr, sha: viewed.sha });
+      const resp = await chrome.runtime.sendMessage({ type: "approve", pr, sha: head.sha });
       if (resp?.ok) {
         showToast("PR Approved!");
         setTimeout(() => window.location.reload(), 800);
@@ -139,8 +143,10 @@
   );
 
   snapshotHead();
-  // GitHub navigates between PRs without full page loads.
-  window.navigation?.addEventListener("navigatesuccess", snapshotHead);
+  // GitHub switches pages via history.pushState, which fires currententrychange
+  // (not navigatesuccess). Poll as a fallback in case an update is missed.
+  window.navigation?.addEventListener("currententrychange", snapshotHead);
+  setInterval(snapshotHead, 1000);
 
   console.log("[PR Quick Approve] Loaded — configure shortcut in extension options");
 })();
