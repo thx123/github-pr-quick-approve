@@ -6,7 +6,7 @@
   // "mod" = Cmd on Mac, Alt on Windows/Linux
   const DEFAULT_SHORTCUT = { key: "u", mod: true, ctrlKey: false, shiftKey: true };
   let shortcut = DEFAULT_SHORTCUT;
-  // Head commit of the PR when the page loaded: { key, sha }. Approval is
+  // Head commit of the PR when the page loaded: { key, sha, error }. Approval is
   // pinned to this commit so new pushes can't be approved unseen.
   let viewed = null;
 
@@ -60,10 +60,12 @@
     if (!pr) return;
     const key = prKey(pr);
     if (viewed && viewed.key === key) return;
-    viewed = { key, sha: null };
+    viewed = { key, sha: null, error: null };
     chrome.runtime.sendMessage({ type: "getHeadSha", pr }, (resp) => {
-      if (chrome.runtime.lastError || !resp?.ok) return;
-      if (viewed && viewed.key === key) viewed.sha = resp.sha;
+      if (!viewed || viewed.key !== key) return;
+      if (chrome.runtime.lastError) viewed.error = chrome.runtime.lastError.message;
+      else if (!resp?.ok) viewed.error = resp?.error || "unknown error";
+      else viewed.sha = resp.sha;
     });
   }
 
@@ -79,6 +81,10 @@
       return;
     }
 
+    if (viewed?.key === prKey(pr) && viewed.error) {
+      showToast(`Couldn't read PR from GitHub: ${viewed.error}`, false);
+      return;
+    }
     if (!viewed || viewed.key !== prKey(pr) || !viewed.sha) {
       showToast("Couldn't confirm which commit you're viewing — reload the page", false);
       return;
