@@ -53,6 +53,12 @@ async function githubFetch(path, options = {}) {
     },
   });
   const data = await resp.json().catch(() => ({}));
+  if (resp.status === 404) {
+    // GitHub hides private repos the token can't access behind a 404.
+    throw new Error(
+      "Not Found — your token can't access this repo. Check its resource owner, repo list, and whether the org has approved it"
+    );
+  }
   if (!resp.ok) throw new Error(data.message || `HTTP ${resp.status}`);
   return data;
 }
