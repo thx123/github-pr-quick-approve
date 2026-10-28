@@ -6,20 +6,22 @@
   // "mod" = Cmd on Mac, Alt on Windows/Linux
   const DEFAULT_SHORTCUT = { key: "u", mod: true, ctrlKey: false, shiftKey: true };
   let shortcut = DEFAULT_SHORTCUT;
-  // Head commit of the PR when the page loaded: { key, result }, where result
-  // is a promise of { sha } or { error }. Approval is
-  // pinned to this commit so new pushes can't be approved unseen.
-  let viewed = null;
+  let approveMessage = "";
 
-  chrome.storage.sync.get({ shortcut: DEFAULT_SHORTCUT }, (data) => {
+  chrome.storage.sync.get({ shortcut: DEFAULT_SHORTCUT, approveMessage: "" }, (data) => {
     shortcut = data.shortcut;
+    approveMessage = data.approveMessage;
   });
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === "sync" && changes.shortcut) shortcut = changes.shortcut.newValue;
+    if (area !== "sync") return;
+    if (changes.shortcut) shortcut = changes.shortcut.newValue;
+    if (changes.approveMessage) approveMessage = changes.approveMessage.newValue;
   });
 
+  const PR_PATH = /^\/[^/]+\/[^/]+\/pull\/\d+/;
+
   function isPRPage() {
-    return /^\/[^/]+\/[^/]+\/pull\/\d+/.test(window.location.pathname);
+    return PR_PATH.test(window.location.pathname);
   }
 
   function showToast(message, success = true) {
@@ -43,70 +45,65 @@
     setTimeout(() => {
       toast.style.opacity = "0";
       setTimeout(() => toast.remove(), 300);
-    }, 2500);
+    }, 4000);
   }
 
-  function parsePR() {
-    const match = window.location.pathname.match(/^\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
-    if (!match) return null;
-    return { owner: match[1], repo: match[2], number: match[3] };
-  }
-
-  function prKey(pr) {
-    return `${pr.owner}/${pr.repo}#${pr.number}`;
-  }
-
-  function snapshotHead() {
-    // After the extension is reloaded, this orphaned script can't message it.
-    if (!chrome.runtime?.id) return;
-    const pr = parsePR();
-    if (!pr) return;
-    const key = prKey(pr);
-    if (viewed && viewed.key === key) return;
-    const result = chrome.runtime
-      .sendMessage({ type: "getHeadSha", pr })
-      .then((resp) => (resp?.ok ? { sha: resp.sha } : { error: resp?.error || "unknown error" }))
-      .catch((err) => ({ error: err.message }));
-    viewed = { key, result };
-  }
-
-  async function approvePR() {
-    if (!isPRPage()) {
-      showToast("Not on a PR page", false);
-      return;
-    }
-
-    const pr = parsePR();
-    if (!pr) {
-      showToast("Could not parse PR from URL", false);
-      return;
-    }
-
-    if (!viewed || viewed.key !== prKey(pr)) {
-      showToast("Couldn't confirm which commit you're viewing — reload the page", false);
-      return;
-    }
-
-    showToast("Approving...");
-
-    // Wait for the page-load lookup if it's still in flight.
-    const head = await viewed.result;
-    if (head.error) {
-      showToast(`Couldn't read PR from GitHub: ${head.error}`, false);
-      return;
-    }
-
+  // Latest head commit according to GitHub right now, or null if it can't be
+  // read. Uses your existing GitHub session; no token involved.
+  async function currentHeadSha() {
     try {
-      const resp = await chrome.runtime.sendMessage({ type: "approve", pr, sha: head.sha });
-      if (resp?.ok) {
-        showToast("PR Approved!");
-        setTimeout(() => window.location.reload(), 800);
-      } else {
-        showToast(`Approve failed: ${resp?.error || "unknown error"}`, false);
-      }
-    } catch (err) {
-      showToast(`Error: ${err.message}`, false);
+      const prPath = window.location.pathname.match(PR_PATH)[0];
+      const resp = await fetch(`${prPath}/commits`, { credentials: "same-origin" });
+      if (!resp.ok) return null;
+      const match = (await resp.text()).match(/"headSha":"([0-9a-f]{40})"/);
+      return match ? match[1] : null;
+    } catch {
+      return null;
     }
+  }
+
+  // Submits GitHub's own review form on the Files changed tab. The form
+  // carries head_sha — the commit this page is showing — so the approval
+  // applies to what you've seen.
+  async function approvePR() {
+    const form = document.getElementById("pull_requests_submit_review");
+    if (!form) {
+      showToast("Open the Files changed tab to approve", false);
+      return;
+    }
+
+    const approve = form.querySelector('input[name="pull_request_review[event]"][value="approve"]');
+    if (!approve) {
+      showToast("Couldn't find GitHub's Approve option", false);
+      return;
+    }
+    if (approve.disabled) {
+      showToast("GitHub won't let you approve this PR (your own, closed, or no permission)", false);
+      return;
+    }
+
+    const viewedSha = form.querySelector('input[name="head_sha"]')?.value;
+    const latestSha = await currentHeadSha();
+    if (viewedSha && latestSha && viewedSha !== latestSha) {
+      showToast("PR has new commits since you loaded it — reload to review them", false);
+      return;
+    }
+
+    approve.checked = true;
+    approve.dispatchEvent(new Event("change", { bubbles: true }));
+
+    // Keep anything you've typed in the review box; otherwise use the
+    // configured message.
+    const body = form.querySelector('textarea[name="pull_request_review[body]"]');
+    if (body && !body.value.trim() && approveMessage) {
+      body.value = approveMessage;
+      body.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    showToast("Submitting approval...");
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit) submit.click();
+    else form.requestSubmit();
   }
 
   function matchesShortcut(e) {
@@ -133,7 +130,9 @@
         }
       }
 
-      if (matchesShortcut(e)) {
+      // Runs on all of github.com so it survives GitHub's in-page navigation,
+      // but only acts on PR pages.
+      if (isPRPage() && matchesShortcut(e)) {
         e.preventDefault();
         e.stopPropagation();
         approvePR();
@@ -141,12 +140,6 @@
     },
     true
   );
-
-  snapshotHead();
-  // GitHub switches pages via history.pushState, which fires currententrychange
-  // (not navigatesuccess). Poll as a fallback in case an update is missed.
-  window.navigation?.addEventListener("currententrychange", snapshotHead);
-  setInterval(snapshotHead, 1000);
 
   console.log("[PR Quick Approve] Loaded — configure shortcut in extension options");
 })();

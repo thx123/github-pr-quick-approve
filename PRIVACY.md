@@ -1,29 +1,20 @@
 # Privacy Policy — GitHub PR Quick Approve
 
-**Last updated:** 2026-03-19
+**Last updated:** 2026-10-28
 
 ## Data collected
 
-This extension stores the following data locally in your browser:
+This extension stores only your **keyboard shortcut** and **approval message**, using Chrome's `storage.sync` API. If you are signed into Chrome, they may sync across your devices via your Google account.
 
-- **GitHub Personal Access Token** — used to authenticate API requests (Chrome local storage, not synced)
-- **Keyboard shortcut preference** — your configured keybinding (Chrome synced storage)
-- **Approval message** — your configured review body text (Chrome synced storage)
+It stores no GitHub credentials. Approvals are submitted through GitHub's own review form using your existing github.com login.
 
-## How data is used
+## Data sharing
 
-- Your GitHub token is sent **only** to `api.github.com` to submit pull request reviews on your behalf.
-- No data is sent to any other server, third party, or analytics service.
-- No data is sold, shared, or transferred to third parties.
-
-## Data storage
-
-Your token is stored with Chrome's `storage.local` API: it stays on this device and is not readable by the extension's scripts on github.com pages. Your shortcut and approval message use `storage.sync`, so if you are signed into Chrome they may sync across your devices via your Google account. You can clear all extension data by resetting to defaults in the extension options or by uninstalling the extension.
+No data is sent anywhere except the github.com pages you are already using. No analytics, no third parties.
 
 ## Permissions
 
-- **storage** — required to save your preferences and token
-- **host_permissions (api.github.com)** — required to call the GitHub API
+- **storage** — saves your shortcut and approval message
 
 ## Contact
 

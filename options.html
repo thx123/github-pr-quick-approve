@@ -77,22 +77,6 @@
       background: #fff;
     }
     a { color: #0969da; }
-    .token-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-    .token-row input { flex: 1; }
-    .token-row button { white-space: nowrap; }
-    #token-status {
-      margin-top: 8px;
-      font-size: 13px;
-      font-weight: 500;
-      min-height: 20px;
-    }
-    #token-status.valid { color: #1a7f37; }
-    #token-status.invalid { color: #cf222e; }
-    #token-status.checking { color: #656d76; }
     #shortcut-input {
       font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
       text-align: center;
@@ -143,23 +127,11 @@
 <body>
   <div class="welcome" id="welcome">
     <h1>GitHub PR Quick Approve</h1>
-    <p>Approve pull requests with a single keyboard shortcut. Set up your token below to get started.</p>
+    <p>Approve pull requests with a single keyboard shortcut on the <strong>Files changed</strong> tab. Uses your normal GitHub login, no token needed.</p>
   </div>
 
   <div class="section-header">
     <span class="step-number">1</span>
-    <h2>GitHub Token</h2>
-  </div>
-  <label for="token-input">Personal Access Token</label>
-  <p class="hint">Required. Use a <strong>fine-grained</strong> token with only <strong>Pull requests: Read and write</strong>. "Create token" pre-fills this; on GitHub, set <strong>Resource owner</strong> to the org whose PRs you review and pick the repos. Classic tokens with <strong>repo</strong> scope also work but grant far broader access.</p>
-  <div class="token-row">
-    <input id="token-input" type="password" placeholder="ghp_..." />
-    <button id="create-token-btn" title="Create a new token on GitHub">Create token</button>
-  </div>
-  <div id="token-status"></div>
-
-  <div class="section-header" style="margin-top: 24px;">
-    <span class="step-number">2</span>
     <h2>Keybinding</h2>
   </div>
   <label for="shortcut-input">Approve shortcut</label>
@@ -167,7 +139,7 @@
   <input id="shortcut-input" type="text" readonly placeholder="Press a key combination..." />
 
   <div class="section-header" style="margin-top: 24px;">
-    <span class="step-number">3</span>
+    <span class="step-number">2</span>
     <h2>Approval message</h2>
   </div>
   <label for="message-input">Review body</label>

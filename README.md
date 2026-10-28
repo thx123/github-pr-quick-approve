@@ -1,90 +1,56 @@
 # GitHub PR Quick Approve
 
-A Chromium extension that lets you approve GitHub pull requests with a single keyboard shortcut.
+A Chromium extension that approves the GitHub pull request you're reviewing with a single keyboard shortcut. It needs **no GitHub token**: it submits GitHub's own review form using your normal browser login.
 
-## Features
+## How to use
 
-- **One-keystroke PR approval** — no clicking through review menus
-- **Works from any PR tab** — Conversation, Commits, Checks, or Files Changed
-- **Configurable keybinding** — set any modifier+key combo you prefer
-- **Custom approval message** — add "LGTM!", a custom note, or leave blank for silent approval
-- **Platform-aware defaults** — `⌘+⇧+U` on Mac, `Alt+Shift+U` on Windows/Linux
-- **Token validation** — verifies your GitHub token and scopes on save
-- **Guided setup** — one-click fine-grained token creation with pre-filled permissions
-- **Safe approvals** — approves only the commit you loaded; refuses if new commits were pushed since
-- **Visual feedback** — green toast notification on success
+1. Open a PR's **Files changed** tab and review it.
+2. Press the shortcut (default `⌘+⇧+U` on Mac, `Alt+Shift+U` on Windows/Linux).
+3. The approval is submitted as if you'd used **Review changes → Approve → Submit review**, and GitHub shows the result.
 
-## Setup
-
-1. Install the extension (see [Install](#install) below)
-2. Open extension options (right-click icon → **Options**)
-3. Click **Create token** — this opens GitHub with a pre-filled fine-grained token (Pull requests: Read and write, 90-day expiry). Set **Resource owner** to the org whose PRs you review and choose the repos.
-4. Generate the token on GitHub, copy it, and paste it back in the options page
-5. The token is validated automatically — you'll see a green confirmation with your username
-6. Click **Save**
+Anything you've typed in GitHub's review box is kept as the review body; otherwise your configured approval message is used. Pending review comments are submitted with it, just as with the normal button.
 
 ## Install
 
-### From source (developer mode)
+1. Clone this repo
+2. Open `chrome://extensions` in Chrome/Edge/Brave and enable **Developer mode**
+3. Click **Load unpacked** and select the folder
 
-1. Clone this repo:
-   ```sh
-   git clone https://github.com/be0x74a/github-pr-quick-approve.git
-   ```
-2. Open `chrome://extensions` in Chrome/Edge/Brave
-3. Enable **Developer mode** (top-right toggle)
-4. Click **Load unpacked** and select the cloned directory
-
-### From releases
-
-1. Download the latest `.zip` from [Releases](https://github.com/be0x74a/github-pr-quick-approve/releases)
-2. Unzip it
-3. Load unpacked in `chrome://extensions` as above
-
-## Usage
-
-1. Navigate to any GitHub pull request page (any tab)
-2. Press the keyboard shortcut (default: `⌘+⇧+U` on Mac / `Alt+Shift+U` on Windows)
-3. The PR is approved — you'll see a green confirmation toast
+To update, pull, click the reload icon on the extension, then reload open GitHub tabs.
 
 ## Configuration
 
-Right-click the extension icon → **Options**, or go to:
+Right-click the extension icon → **Options**:
 
-`chrome://extensions` → GitHub PR Quick Approve → **Details** → **Extension options**
+- **Shortcut** — click the field and press a key combination (must include a modifier)
+- **Approval message** — optional review body, e.g. "LGTM!". Leave empty for a silent approval.
 
-- **GitHub Token** — required. Fine-grained PAT with `Pull requests: Read and write` (recommended), or a classic PAT with `repo` scope (works, but grants full access to all your repos). Click "Create token" for guided setup.
-- **Shortcut** — click the input field, press your desired key combination (must include at least one modifier key)
-- **Approval message** — optionally set a review body (e.g. "LGTM!"). Leave empty for a silent approval.
+Both sync across your Chrome profiles.
 
-Click **Save** to apply. The token is validated before saving.
+## Messages
+
+| Message | Meaning |
+| --- | --- |
+| `Open the Files changed tab to approve` | GitHub's review form only exists on that tab. |
+| `PR has new commits since you loaded it — reload to review them` | Someone pushed after you opened the page. Reload and review the new commits. |
+| `GitHub won't let you approve this PR` | It's your own PR, it's closed or merged, or you lack permission. |
+| `Couldn't find GitHub's Approve option` | GitHub changed its page; the extension needs updating. |
 
 ## How it works
 
-The extension runs a content script on GitHub PR pages (`github.com/*/pull/*`). When triggered, it asks the background service worker to call the [GitHub REST API](https://docs.github.com/en/rest/pulls/reviews#create-a-review-for-a-pull-request) and submit an approval review.
+The content script runs on github.com and acts only on PR pages, so it keeps working when GitHub switches pages without a full reload. On the shortcut it:
 
-When a PR page loads, the extension records the PR's head commit. The approval is pinned to that commit, and is refused if the PR has received new commits since — reload to review them first.
+1. Ignores synthetic key events, so page scripts and other extensions can't trigger it.
+2. Finds GitHub's review form (`#pull_requests_submit_review`) on the Files changed tab. The form carries `head_sha`, the commit the page is showing.
+3. Fetches the PR's `/commits` page with your session to read the latest head commit, and refuses if it differs from what you're viewing. If that page can't be read, it relies on the form's `head_sha`.
+4. Selects **Approve**, fills the message if the box is empty, and clicks GitHub's **Submit review** button.
 
-**Permissions:**
-- `storage` — saves your preferences (keybinding, message, token)
-- `host_permissions: api.github.com` — needed to call the GitHub API
+**Permissions:** only `storage`, for the shortcut and message. No host permissions, no tokens, and no requests to anything except the github.com page you're on.
 
-Your token is stored in Chrome's local (non-synced) storage, restricted so content scripts on github.com cannot read it. Only the background service worker uses it, and only to call `api.github.com`. The extension makes no other external requests. Synthetic keyboard events from page scripts are ignored.
+## History
 
-## Development
-
-```sh
-# Clone
-git clone https://github.com/be0x74a/github-pr-quick-approve.git
-cd github-pr-quick-approve
-
-# Load in Chrome as unpacked extension (see Install above)
-# Edit files, then reload the extension in chrome://extensions
-
-# Build release zip
-zip -r github-pr-quick-approve.zip . -x '.git/*' -x '.github/*' -x 'README.md' -x 'LICENSE'
-```
+Based on [be0x74a/github-pr-quick-approve](https://github.com/be0x74a/github-pr-quick-approve) v2.0.1 (MIT). v3.0.0 replaces the personal access token and REST API with GitHub's own review form, because orgs may not allow personal access tokens. Tokens saved by earlier versions are deleted on update.
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).

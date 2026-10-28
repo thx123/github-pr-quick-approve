@@ -1,10 +1,11 @@
 {
   "manifest_version": 3,
   "name": "GitHub PR Quick Approve",
-  "version": "2.0.1",
-  "description": "Approve GitHub PRs with a configurable keyboard shortcut (via GitHub API)",
-  "permissions": ["storage"],
-  "host_permissions": ["https://api.github.com/*"],
+  "version": "3.0.0",
+  "description": "Approve GitHub PRs with a configurable keyboard shortcut (no token needed)",
+  "permissions": [
+    "storage"
+  ],
   "background": {
     "service_worker": "background.js"
   },
@@ -14,8 +15,12 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://github.com/*/pull/*"],
-      "js": ["content.js"]
+      "matches": [
+        "https://github.com/*"
+      ],
+      "js": [
+        "content.js"
+      ]
     }
   ],
   "icons": {
