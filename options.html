@@ -77,15 +77,19 @@
       background: #fff;
     }
     a { color: #0969da; }
-    #shortcut-input {
+    .shortcut-input {
       font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
       text-align: center;
       cursor: pointer;
     }
-    #shortcut-input.recording {
+    .shortcut-input.recording {
       border-color: #bf8700;
       box-shadow: 0 0 0 3px rgba(191, 135, 0, 0.3);
       background: #fff;
+    }
+    .hint.error {
+      color: #cf222e;
+      margin-top: 8px;
     }
     .status {
       margin-top: 12px;
@@ -127,7 +131,7 @@
 <body>
   <div class="welcome" id="welcome">
     <h1>GitHub PR Quick Approve</h1>
-    <p>Approve pull requests with a single keyboard shortcut on the <strong>Files changed</strong> tab. Uses your normal GitHub login, no token needed.</p>
+    <p>Approve pull requests, or jump straight to writing a review, with a single keyboard shortcut on any PR tab. Uses your normal GitHub login, no token needed.</p>
   </div>
 
   <div class="section-header">
@@ -136,7 +140,12 @@
   </div>
   <label for="shortcut-input">Approve shortcut</label>
   <p class="hint">Click the field and press your desired key combination.</p>
-  <input id="shortcut-input" type="text" readonly placeholder="Press a key combination..." />
+  <input id="shortcut-input" class="shortcut-input" type="text" readonly placeholder="Press a key combination..." />
+
+  <label for="review-shortcut-input" style="margin-top: 16px;">Write review shortcut</label>
+  <p class="hint">Opens <strong>Review changes</strong> with the cursor in the comment box, without approving.</p>
+  <input id="review-shortcut-input" class="shortcut-input" type="text" readonly placeholder="Press a key combination..." />
+  <p class="hint error" id="shortcut-error" hidden>The two shortcuts must be different.</p>
 
   <div class="section-header" style="margin-top: 24px;">
     <span class="step-number">2</span>

@@ -1,6 +1,6 @@
 # GitHub PR Quick Approve
 
-A Chromium extension that approves the GitHub pull request you're reviewing with a single keyboard shortcut. It needs **no GitHub token**: it submits GitHub's own review form using your normal browser login.
+A Chromium extension that approves the GitHub pull request you're reviewing with a single keyboard shortcut, or opens GitHub's review box so you can write a review. It needs **no GitHub token**: it submits GitHub's own review form using your normal browser login.
 
 ## How to use
 
@@ -11,6 +11,10 @@ A Chromium extension that approves the GitHub pull request you're reviewing with
 GitHub's review form only exists on the **Files changed** tab. Pressed anywhere else, the extension notes which commit that tab is showing, switches to Files changed, and finishes the approval there — refusing if Files changed shows a different commit.
 
 Anything you've typed in GitHub's review box is kept as the review body; otherwise your configured approval message is used. Pending review comments are submitted with it, just as with the normal button.
+
+### Writing a review instead
+
+To write a review rather than approve, press the second shortcut (default `⌘+⇧+E` on Mac, `Alt+Shift+E` on Windows/Linux). It opens **Review changes** with the cursor in the **Write** box, so you can start typing right away. Nothing is selected or submitted; pick Comment, Approve or Request changes yourself. Like the approve shortcut, it works from any PR tab and switches to Files changed first if needed.
 
 ## Install
 
@@ -24,7 +28,7 @@ To update, pull, click the reload icon on the extension, then reload open GitHub
 
 Right-click the extension icon → **Options**:
 
-- **Shortcut** — click the field and press a key combination (must include a modifier)
+- **Approve shortcut** and **Write review shortcut** — click a field and press a key combination (must include a modifier, and the two must differ)
 - **Approval message** — optional review body, e.g. "LGTM!". Leave empty for a silent approval.
 
 Both sync across your Chrome profiles.
@@ -34,11 +38,13 @@ Both sync across your Chrome profiles.
 | Message | Meaning |
 | --- | --- |
 | `Switching to Files changed to approve...` | You pressed it on another tab; the approval finishes after the switch. |
+| `Switching to Files changed to open your review...` | You pressed the write review shortcut on another tab; the review box opens after the switch. |
 | `Switching to Files changed — press the shortcut again there` | The tab you were on didn't show which commit it was displaying, so it won't approve unattended. Press again once Files changed loads. |
 | `Couldn't find GitHub's review form on Files changed` | Files changed didn't show the review form within 10 seconds of switching. |
 | `PR has new commits since you loaded it — reload to review them` | Someone pushed after you opened the page. Reload and review the new commits. |
 | `GitHub won't let you approve this PR` | It's your own PR, it's closed or merged, or you lack permission. |
 | `Couldn't find GitHub's Approve option` | GitHub changed its page; the extension needs updating. |
+| `Couldn't find GitHub's Review changes button` / `review comment box` | Same: GitHub changed its page. |
 
 ## How it works
 
@@ -49,7 +55,9 @@ The content script runs on github.com and acts only on PR pages, so it keeps wor
 3. Fetches the PR's `/commits` page with your session to read the latest head commit, and refuses if it differs from what you're viewing. If that page can't be read, it relies on the form's `head_sha`.
 4. Selects **Approve**, fills the message if the box is empty, and clicks GitHub's **Submit review** button.
 
-**Permissions:** only `storage`, for the shortcut and message. No host permissions, no tokens, and no requests to anything except the github.com page you're on.
+The write review shortcut uses the same form: it clicks GitHub's **Review changes** button (unless the dialog is already open), switches the comment box back from Preview to Write if needed, and puts the cursor at the end of the box.
+
+**Permissions:** only `storage`, for the shortcuts and message. No host permissions, no tokens, and no requests to anything except the github.com page you're on.
 
 ## History
 

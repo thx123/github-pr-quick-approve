@@ -5,24 +5,32 @@
 
   // "mod" = Cmd on Mac, Alt on Windows/Linux
   const DEFAULT_SHORTCUT = { key: "u", mod: true, ctrlKey: false, shiftKey: true };
+  const DEFAULT_REVIEW_SHORTCUT = { key: "e", mod: true, ctrlKey: false, shiftKey: true };
   let shortcut = DEFAULT_SHORTCUT;
+  let reviewShortcut = DEFAULT_REVIEW_SHORTCUT;
   let approveMessage = "";
 
   const settingsLoaded = new Promise((resolve) =>
-    chrome.storage.sync.get({ shortcut: DEFAULT_SHORTCUT, approveMessage: "" }, (data) => {
-      shortcut = data.shortcut;
-      approveMessage = data.approveMessage;
-      resolve();
-    })
+    chrome.storage.sync.get(
+      { shortcut: DEFAULT_SHORTCUT, reviewShortcut: DEFAULT_REVIEW_SHORTCUT, approveMessage: "" },
+      (data) => {
+        shortcut = data.shortcut;
+        reviewShortcut = data.reviewShortcut;
+        approveMessage = data.approveMessage;
+        resolve();
+      }
+    )
   );
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "sync") return;
     if (changes.shortcut) shortcut = changes.shortcut.newValue;
+    if (changes.reviewShortcut) reviewShortcut = changes.reviewShortcut.newValue;
     if (changes.approveMessage) approveMessage = changes.approveMessage.newValue;
   });
 
   const PR_PATH = /^\/[^/]+\/[^/]+\/pull\/\d+/;
-  // Set before switching to Files changed so the approval can finish there.
+  // Set before switching to Files changed so the approval (or opening the
+  // review dialog) can finish there.
   const PENDING_KEY = "prQuickApprove.pending";
   const PENDING_MAX_AGE_MS = 30000;
 
@@ -44,7 +52,13 @@
     return null;
   }
 
-  function switchToFilesTab() {
+  function switchToFilesTab(action = "approve") {
+    if (action === "review") {
+      sessionStorage.setItem(PENDING_KEY, JSON.stringify({ path: prPath(), action, at: Date.now() }));
+      showToast("Switching to Files changed to open your review...");
+      window.location.assign(`${prPath()}/files`);
+      return;
+    }
     const sha = headShaOnPage();
     if (sha) {
       sessionStorage.setItem(PENDING_KEY, JSON.stringify({ path: prPath(), sha, at: Date.now() }));
@@ -56,16 +70,25 @@
     window.location.assign(`${prPath()}/files`);
   }
 
-  function waitForReviewForm(timeoutMs = 10000) {
+  // Resolves with check()'s result once it's truthy, or after timeoutMs.
+  function waitFor(check, timeoutMs, intervalMs = 200) {
     return new Promise((resolve) => {
       const started = Date.now();
       const poll = () => {
-        const form = document.getElementById("pull_requests_submit_review");
-        if (form || Date.now() - started > timeoutMs) resolve(form);
-        else setTimeout(poll, 200);
+        const result = check();
+        if (result || Date.now() - started > timeoutMs) resolve(result);
+        else setTimeout(poll, intervalMs);
       };
       poll();
     });
+  }
+
+  function waitForReviewForm(timeoutMs = 10000) {
+    return waitFor(() => document.getElementById("pull_requests_submit_review"), timeoutMs);
+  }
+
+  function isShown(el) {
+    return el.getClientRects().length > 0;
   }
 
   async function resumePendingApproval() {
@@ -83,7 +106,8 @@
       showToast("Couldn't find GitHub's review form on Files changed", false);
       return;
     }
-    approvePR(pending.sha);
+    if (pending.action === "review") openReview();
+    else approvePR(pending.sha);
   }
 
   function showToast(message, success = true) {
@@ -172,13 +196,49 @@
     else form.requestSubmit();
   }
 
-  function matchesShortcut(e) {
+  // Opens GitHub's Review changes dialog on the Files changed tab with the
+  // cursor in its comment box, ready to type. Doesn't select or submit
+  // anything.
+  async function openReview() {
+    const form = document.getElementById("pull_requests_submit_review");
+    if (!form) {
+      switchToFilesTab("review");
+      return;
+    }
+    const body = form.querySelector('textarea[name="pull_request_review[body]"]');
+    if (!body) {
+      showToast("Couldn't find GitHub's review comment box", false);
+      return;
+    }
+
+    // The form is hidden while the dialog is closed.
+    if (!isShown(form)) {
+      const toggle =
+        document.getElementById("overlay-show-review-changes-modal") ||
+        document.querySelector(".js-reviews-toggle");
+      if (!toggle) {
+        showToast("Couldn't find GitHub's Review changes button", false);
+        return;
+      }
+      toggle.click();
+    }
+    // Switch back from Preview if it was left selected.
+    const dialog = form.closest('dialog, [role="dialog"]') || form;
+    dialog.querySelector(".js-write-tab")?.click();
+
+    // Focus once the dialog has opened, so its own autofocus doesn't take it.
+    await waitFor(() => isShown(body), 1000, 50);
+    body.focus();
+    body.setSelectionRange(body.value.length, body.value.length);
+  }
+
+  function matchesShortcut(e, s) {
     const mod = isMac ? e.metaKey : e.altKey;
     return (
-      e.key.toLowerCase() === shortcut.key &&
-      mod === !!shortcut.mod &&
-      e.ctrlKey === !!shortcut.ctrlKey &&
-      e.shiftKey === !!shortcut.shiftKey
+      e.key.toLowerCase() === s.key &&
+      mod === !!s.mod &&
+      e.ctrlKey === !!s.ctrlKey &&
+      e.shiftKey === !!s.shiftKey
     );
   }
 
@@ -198,10 +258,15 @@
 
       // Runs on all of github.com so it survives GitHub's in-page navigation,
       // but only acts on PR pages.
-      if (isPRPage() && matchesShortcut(e)) {
+      if (!isPRPage()) return;
+      if (matchesShortcut(e, shortcut)) {
         e.preventDefault();
         e.stopPropagation();
         approvePR();
+      } else if (matchesShortcut(e, reviewShortcut)) {
+        e.preventDefault();
+        e.stopPropagation();
+        openReview();
       }
     },
     true
