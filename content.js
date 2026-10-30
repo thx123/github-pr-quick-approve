@@ -3,28 +3,31 @@
 
   const isMac = navigator.platform.toUpperCase().includes("MAC");
 
-  // "mod" = Cmd on Mac, Alt on Windows/Linux
-  const DEFAULT_SHORTCUT = { key: "u", mod: true, ctrlKey: false, shiftKey: true };
-  const DEFAULT_REVIEW_SHORTCUT = { key: "e", mod: true, ctrlKey: false, shiftKey: true };
-  let shortcut = DEFAULT_SHORTCUT;
-  let reviewShortcut = DEFAULT_REVIEW_SHORTCUT;
+  // "mod" = Cmd on Mac, Alt on Windows/Linux. Defaults use Ctrl+Shift on
+  // every platform.
+  const ctrlShift = (key) => ({ key, mod: false, ctrlKey: true, shiftKey: true });
+  // Storage key -> default. Keep in sync with options.js.
+  const DEFAULT_SHORTCUTS = {
+    shortcut: ctrlShift("u"), // approve
+    reviewShortcut: ctrlShift("e"),
+    conversationTabShortcut: ctrlShift("1"),
+    commitsTabShortcut: ctrlShift("2"),
+    checksTabShortcut: ctrlShift("3"),
+    filesTabShortcut: ctrlShift("4"),
+  };
+  const shortcuts = { ...DEFAULT_SHORTCUTS };
   let approveMessage = "";
 
   const settingsLoaded = new Promise((resolve) =>
-    chrome.storage.sync.get(
-      { shortcut: DEFAULT_SHORTCUT, reviewShortcut: DEFAULT_REVIEW_SHORTCUT, approveMessage: "" },
-      (data) => {
-        shortcut = data.shortcut;
-        reviewShortcut = data.reviewShortcut;
-        approveMessage = data.approveMessage;
-        resolve();
-      }
-    )
+    chrome.storage.sync.get({ ...DEFAULT_SHORTCUTS, approveMessage: "" }, (data) => {
+      for (const key in DEFAULT_SHORTCUTS) shortcuts[key] = data[key];
+      approveMessage = data.approveMessage;
+      resolve();
+    })
   );
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "sync") return;
-    if (changes.shortcut) shortcut = changes.shortcut.newValue;
-    if (changes.reviewShortcut) reviewShortcut = changes.reviewShortcut.newValue;
+    for (const key in DEFAULT_SHORTCUTS) if (changes[key]) shortcuts[key] = changes[key].newValue;
     if (changes.approveMessage) approveMessage = changes.approveMessage.newValue;
   });
 
@@ -232,10 +235,49 @@
     body.setSelectionRange(body.value.length, body.value.length);
   }
 
+  // Path under the PR for each tab. Files changed may also be at /changes.
+  const TABS = { conversation: "", commits: "/commits", checks: "/checks", files: "/files" };
+
+  function onTab(tab) {
+    const rest = window.location.pathname.slice(prPath().length).replace(/\/$/, "");
+    if (tab === "files") return /^\/(files|changes)(\/|$)/.test(rest);
+    return rest === TABS[tab];
+  }
+
+  // Clicks GitHub's own tab link when there is one, so GitHub switches tabs
+  // without a full page load.
+  function switchTab(tab) {
+    if (onTab(tab)) return;
+    const targets = [prPath() + TABS[tab]];
+    if (tab === "files") targets.push(prPath() + "/changes");
+    const link = [...document.querySelectorAll('a.tabnav-tab, a[class*="TabNavLink"]')].find((a) =>
+      targets.includes(a.pathname.replace(/\/$/, ""))
+    );
+    if (link) link.click();
+    else window.location.assign(targets[0]);
+  }
+
+  const ACTIONS = [
+    { setting: "shortcut", run: () => approvePR() },
+    { setting: "reviewShortcut", run: () => openReview() },
+    { setting: "conversationTabShortcut", run: () => switchTab("conversation"), tab: true },
+    { setting: "commitsTabShortcut", run: () => switchTab("commits"), tab: true },
+    { setting: "checksTabShortcut", run: () => switchTab("checks"), tab: true },
+    { setting: "filesTabShortcut", run: () => switchTab("files"), tab: true },
+  ];
+
+  // Number keys are read by position: with Shift held, e.key is "!", "@"...
+  // depending on the keyboard layout. Keep in sync with options.js.
+  function shortcutKey(e) {
+    const digit = /^Digit(\d)$/.exec(e.code);
+    if (digit) return digit[1];
+    return e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  }
+
   function matchesShortcut(e, s) {
     const mod = isMac ? e.metaKey : e.altKey;
     return (
-      e.key.toLowerCase() === s.key &&
+      shortcutKey(e) === s.key &&
       mod === !!s.mod &&
       e.ctrlKey === !!s.ctrlKey &&
       e.shiftKey === !!s.shiftKey
@@ -249,25 +291,20 @@
       if (!e.isTrusted) return;
 
       const hasModifier = e.metaKey || e.altKey || e.ctrlKey;
-      if (!hasModifier) {
-        const tag = e.target.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || e.target.isContentEditable) {
-          return;
-        }
-      }
+      const tag = e.target.tagName;
+      const inTextField = tag === "INPUT" || tag === "TEXTAREA" || e.target.isContentEditable;
+      if (!hasModifier && inTextField) return;
 
       // Runs on all of github.com so it survives GitHub's in-page navigation,
       // but only acts on PR pages.
       if (!isPRPage()) return;
-      if (matchesShortcut(e, shortcut)) {
-        e.preventDefault();
-        e.stopPropagation();
-        approvePR();
-      } else if (matchesShortcut(e, reviewShortcut)) {
-        e.preventDefault();
-        e.stopPropagation();
-        openReview();
-      }
+      const action = ACTIONS.find((a) => matchesShortcut(e, shortcuts[a.setting]));
+      // Tab shortcuts are left alone while typing, so they don't take over
+      // editing keys like Cmd+Shift+V (paste as plain text).
+      if (!action || (action.tab && inTextField)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      action.run();
     },
     true
   );

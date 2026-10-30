@@ -87,6 +87,16 @@
       box-shadow: 0 0 0 3px rgba(191, 135, 0, 0.3);
       background: #fff;
     }
+    .tab-shortcuts {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 8px 12px;
+      align-items: center;
+    }
+    .tab-shortcuts label {
+      margin-bottom: 0;
+      font-weight: 400;
+    }
     .hint.error {
       color: #cf222e;
       margin-top: 8px;
@@ -136,7 +146,7 @@
 
   <div class="section-header">
     <span class="step-number">1</span>
-    <h2>Keybinding</h2>
+    <h2>Keyboard shortcuts</h2>
   </div>
   <label for="shortcut-input">Approve shortcut</label>
   <p class="hint">Click the field and press your desired key combination.</p>
@@ -145,7 +155,20 @@
   <label for="review-shortcut-input" style="margin-top: 16px;">Write review shortcut</label>
   <p class="hint">Opens <strong>Review changes</strong> with the cursor in the comment box, without approving.</p>
   <input id="review-shortcut-input" class="shortcut-input" type="text" readonly placeholder="Press a key combination..." />
-  <p class="hint error" id="shortcut-error" hidden>The two shortcuts must be different.</p>
+
+  <label style="margin-top: 16px;">Switch tab shortcuts</label>
+  <p class="hint">Jump to a PR tab. These don't fire while you're typing in a text box.</p>
+  <div class="tab-shortcuts">
+    <label for="conversation-tab-input">Conversation</label>
+    <input id="conversation-tab-input" class="shortcut-input" type="text" readonly placeholder="Press a key combination..." />
+    <label for="commits-tab-input">Commits</label>
+    <input id="commits-tab-input" class="shortcut-input" type="text" readonly placeholder="Press a key combination..." />
+    <label for="checks-tab-input">Checks</label>
+    <input id="checks-tab-input" class="shortcut-input" type="text" readonly placeholder="Press a key combination..." />
+    <label for="files-tab-input">Files changed</label>
+    <input id="files-tab-input" class="shortcut-input" type="text" readonly placeholder="Press a key combination..." />
+  </div>
+  <p class="hint error" id="shortcut-error" hidden></p>
 
   <div class="section-header" style="margin-top: 24px;">
     <span class="step-number">2</span>

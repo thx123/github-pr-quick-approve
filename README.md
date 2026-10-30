@@ -1,11 +1,11 @@
 # GitHub PR Quick Approve
 
-A Chromium extension that approves the GitHub pull request you're reviewing with a single keyboard shortcut, or opens GitHub's review box so you can write a review. It needs **no GitHub token**: it submits GitHub's own review form using your normal browser login.
+A Chromium extension that approves the GitHub pull request you're reviewing with a single keyboard shortcut, or opens GitHub's review box so you can write a review. It also has shortcuts for switching between a PR's tabs. It needs **no GitHub token**: it submits GitHub's own review form using your normal browser login.
 
 ## How to use
 
 1. Open a PR and review it.
-2. Press the shortcut (default `⌘+⇧+U` on Mac, `Alt+Shift+U` on Windows/Linux) on any PR tab.
+2. Press the shortcut (default `Ctrl+Shift+U`, `⌃⇧U` on Mac) on any PR tab.
 3. The approval is submitted as if you'd used **Review changes → Approve → Submit review**, and GitHub shows the result.
 
 GitHub's review form only exists on the **Files changed** tab. Pressed anywhere else, the extension notes which commit that tab is showing, switches to Files changed, and finishes the approval there — refusing if Files changed shows a different commit.
@@ -14,7 +14,20 @@ Anything you've typed in GitHub's review box is kept as the review body; otherwi
 
 ### Writing a review instead
 
-To write a review rather than approve, press the second shortcut (default `⌘+⇧+E` on Mac, `Alt+Shift+E` on Windows/Linux). It opens **Review changes** with the cursor in the **Write** box, so you can start typing right away. Nothing is selected or submitted; pick Comment, Approve or Request changes yourself. Like the approve shortcut, it works from any PR tab and switches to Files changed first if needed.
+To write a review rather than approve, press the second shortcut (default `Ctrl+Shift+E`, `⌃⇧E` on Mac). It opens **Review changes** with the cursor in the **Write** box, so you can start typing right away. Nothing is selected or submitted; pick Comment, Approve or Request changes yourself. Like the approve shortcut, it works from any PR tab and switches to Files changed first if needed.
+
+### Switching tabs
+
+| Tab | Default (`⌃⇧` on Mac) |
+| --- | --- |
+| Conversation | `Ctrl+Shift+1` |
+| Commits | `Ctrl+Shift+2` |
+| Checks | `Ctrl+Shift+3` |
+| Files changed | `Ctrl+Shift+4` |
+
+These don't fire while you're typing in a text box. The approve and write review shortcuts do work while typing.
+
+Number keys are matched by position, so they work on any keyboard layout even though Shift turns them into symbols.
 
 ## Install
 
@@ -28,7 +41,7 @@ To update, pull, click the reload icon on the extension, then reload open GitHub
 
 Right-click the extension icon → **Options**:
 
-- **Approve shortcut** and **Write review shortcut** — click a field and press a key combination (must include a modifier, and the two must differ)
+- **Approve**, **Write review** and **Switch tab** shortcuts — click a field and press a key combination (must include a modifier, and no two may be the same). Defaults all use Ctrl+Shift on every platform; Ctrl is the Control key (`⌃`) on Mac, not Command. When you update, any shortcut still set to an old default (`⌘⇧U` / `Alt+Shift+U`, `⌘⇧E` / `Alt+Shift+E`) moves to the new one; shortcuts you picked yourself are kept.
 - **Approval message** — optional review body, e.g. "LGTM!". Leave empty for a silent approval.
 
 Both sync across your Chrome profiles.
@@ -55,13 +68,15 @@ The content script runs on github.com and acts only on PR pages, so it keeps wor
 3. Fetches the PR's `/commits` page with your session to read the latest head commit, and refuses if it differs from what you're viewing. If that page can't be read, it relies on the form's `head_sha`.
 4. Selects **Approve**, fills the message if the box is empty, and clicks GitHub's **Submit review** button.
 
+The tab shortcuts click GitHub's own tab links, so the switch happens without a full page load; if a link can't be found, they load the tab's address instead.
+
 The write review shortcut uses the same form: it clicks GitHub's **Review changes** button (unless the dialog is already open), switches the comment box back from Preview to Write if needed, and puts the cursor at the end of the box.
 
 **Permissions:** only `storage`, for the shortcuts and message. No host permissions, no tokens, and no requests to anything except the github.com page you're on.
 
 ## History
 
-Based on [be0x74a/github-pr-quick-approve](https://github.com/be0x74a/github-pr-quick-approve) v2.0.1 (MIT). v3.0.0 replaces the personal access token and REST API with GitHub's own review form, because orgs may not allow personal access tokens. Tokens saved by earlier versions are deleted on update. v3.1.0 adds the write review shortcut.
+Based on [be0x74a/github-pr-quick-approve](https://github.com/be0x74a/github-pr-quick-approve) v2.0.1 (MIT). v3.0.0 replaces the personal access token and REST API with GitHub's own review form, because orgs may not allow personal access tokens. Tokens saved by earlier versions are deleted on update. v3.1.0 adds the write review shortcut. v3.2.0 adds tab shortcuts and moves every default to Ctrl+Shift (approve was `⌘⇧U` / `Alt+Shift+U`).
 
 ## License
 
