@@ -19,6 +19,7 @@ for (const [key, inputId, name, defaults] of [
   ["commitsTabShortcut", "commits-tab-input", "Commits", ctrlShift("2")],
   ["checksTabShortcut", "checks-tab-input", "Checks", ctrlShift("3")],
   ["filesTabShortcut", "files-tab-input", "Files changed", ctrlShift("4")],
+  ["sinceReviewShortcut", "since-review-input", "Since last review", ctrlShift("l")],
 ]) {
   shortcutFields[key] = { input: document.getElementById(inputId), name, defaults, pending: null };
 }

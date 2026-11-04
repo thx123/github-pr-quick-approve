@@ -14,6 +14,7 @@
     commitsTabShortcut: ctrlShift("2"),
     checksTabShortcut: ctrlShift("3"),
     filesTabShortcut: ctrlShift("4"),
+    sinceReviewShortcut: ctrlShift("l"),
   };
   const shortcuts = { ...DEFAULT_SHORTCUTS };
   let approveMessage = "";
@@ -56,9 +57,13 @@
   }
 
   function switchToFilesTab(action = "approve") {
-    if (action === "review") {
+    const messages = {
+      review: "Switching to Files changed to open your review...",
+      sinceReview: "Switching to Files changed to show changes since your last review...",
+    };
+    if (messages[action]) {
       sessionStorage.setItem(PENDING_KEY, JSON.stringify({ path: prPath(), action, at: Date.now() }));
-      showToast("Switching to Files changed to open your review...");
+      showToast(messages[action]);
       window.location.assign(`${prPath()}/files`);
       return;
     }
@@ -105,6 +110,11 @@
       return;
     }
     if (!isPRPage() || pending.path !== prPath() || Date.now() - pending.at > PENDING_MAX_AGE_MS) return;
+    if (pending.action === "sinceReview") {
+      await waitFor(() => sinceReviewItem() || changesMenuToggle(), 10000);
+      showChangesSinceReview();
+      return;
+    }
     if (!(await waitForReviewForm())) {
       showToast("Couldn't find GitHub's review form on Files changed", false);
       return;
@@ -257,6 +267,52 @@
     else window.location.assign(targets[0]);
   }
 
+  // "Show changes since your last review" in the Files changed tab's
+  // "Changes from" commits menu.
+  const SINCE_REVIEW_TEXT = /changes since your last review/i;
+
+  function sinceReviewItem() {
+    const matches = [...document.querySelectorAll('a, button, [role^="menuitem"]')].filter((el) =>
+      SINCE_REVIEW_TEXT.test(el.textContent)
+    );
+    // Innermost match, in case menu items are nested.
+    return matches.find((el) => !matches.some((other) => other !== el && el.contains(other))) || null;
+  }
+
+  function changesMenuToggle() {
+    return (
+      document.querySelector(".js-diffbar-range-menu > summary") ||
+      [...document.querySelectorAll("summary, button")].find((el) => /^\s*Changes from\b/.test(el.textContent)) ||
+      null
+    );
+  }
+
+  async function showChangesSinceReview() {
+    if (!onTab("files")) {
+      switchToFilesTab("sinceReview");
+      return;
+    }
+    let item = sinceReviewItem();
+    let toggle = null;
+    if (!item) {
+      // Some versions of the page only build the menu once it's opened.
+      toggle = changesMenuToggle();
+      if (toggle) {
+        toggle.click();
+        item = await waitFor(sinceReviewItem, 3000, 100);
+      }
+    }
+    const disabled =
+      item && (item.disabled || item.getAttribute("aria-disabled") === "true" || item.classList.contains("disabled") ||
+        (item.tagName === "A" && !item.getAttribute("href")));
+    if (!item || disabled) {
+      if (toggle) toggle.click(); // close the menu we opened
+      showToast("No changes since your last review, or you haven't reviewed this PR yet", false);
+      return;
+    }
+    item.click();
+  }
+
   const ACTIONS = [
     { setting: "shortcut", run: () => approvePR() },
     { setting: "reviewShortcut", run: () => openReview() },
@@ -264,6 +320,7 @@
     { setting: "commitsTabShortcut", run: () => switchTab("commits"), tab: true },
     { setting: "checksTabShortcut", run: () => switchTab("checks"), tab: true },
     { setting: "filesTabShortcut", run: () => switchTab("files"), tab: true },
+    { setting: "sinceReviewShortcut", run: () => showChangesSinceReview(), tab: true },
   ];
 
   // Number keys are read by position: with Shift held, e.key is "!", "@"...
@@ -299,8 +356,8 @@
       // but only acts on PR pages.
       if (!isPRPage()) return;
       const action = ACTIONS.find((a) => matchesShortcut(e, shortcuts[a.setting]));
-      // Tab shortcuts are left alone while typing, so they don't take over
-      // editing keys like Cmd+Shift+V (paste as plain text).
+      // Shortcuts that leave the page are ignored while typing, so they
+      // don't take over the text box's own keys.
       if (!action || (action.tab && inTextField)) return;
       e.preventDefault();
       e.stopPropagation();
