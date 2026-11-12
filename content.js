@@ -92,7 +92,10 @@
   }
 
   function waitForReviewForm(timeoutMs = 10000) {
-    return waitFor(() => document.getElementById("pull_requests_submit_review"), timeoutMs);
+    return waitFor(
+      () => document.getElementById("pull_requests_submit_review") || document.querySelector(REVIEW_BUTTON),
+      timeoutMs
+    );
   }
 
   function isShown(el) {
@@ -164,10 +167,21 @@
   // carries head_sha — the commit this page is showing — so the approval
   // applies to what you've seen. `seenSha` is the commit shown on the tab
   // you pressed the shortcut on, when that wasn't Files changed.
+  // GitHub's newer pages have no form; their review dialog is used instead.
+  // The review form or Review button is missing even on Files changed, so
+  // switching there again would only reload the page.
+  function noReviewHere() {
+    if (!onTab("files")) return false;
+    showToast("Couldn't find GitHub's Review button on this page", false);
+    return true;
+  }
+
   async function approvePR(seenSha = null) {
     const form = document.getElementById("pull_requests_submit_review");
     if (!form) {
-      switchToFilesTab();
+      const button = document.querySelector(REVIEW_BUTTON);
+      if (button) approveInDialog(button, seenSha);
+      else if (!noReviewHere()) switchToFilesTab();
       return;
     }
 
@@ -212,10 +226,102 @@
   // Opens GitHub's Review changes dialog on the Files changed tab with the
   // cursor in its comment box, ready to type. Doesn't select or submit
   // anything.
+  // GitHub's newer PR pages have a Review button on every tab that opens a
+  // dialog, instead of the Review changes form on Files changed.
+  const REVIEW_BUTTON = 'button[data-dd-action-name="pull_requests.review.open"]';
+  const REVIEW_SUBMIT = 'button[data-dd-action-name="pull_requests.review.submit"]';
+
+  function reviewDialog() {
+    return document.querySelector(REVIEW_SUBMIT)?.closest('dialog, [role="dialog"]') || null;
+  }
+
+  async function showReviewDialog(button) {
+    let dialog = reviewDialog();
+    if (!dialog) {
+      button.click();
+      dialog = await waitFor(reviewDialog, 2000, 50);
+    }
+    if (!dialog) showToast("Couldn't open GitHub's review dialog", false);
+    return dialog;
+  }
+
+  // The dialog's fields are React-controlled, so set the value the way
+  // typing would, or React keeps its own copy.
+  function typeInto(textarea, text) {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(textarea, text);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  const isDisabled = (el) => el.disabled || el.getAttribute("aria-disabled") === "true";
+
+  async function approveInDialog(button, seenSha = null) {
+    const viewedSha = headShaOnPage();
+    const latestSha = await currentHeadSha();
+    const changed =
+      (seenSha && viewedSha && seenSha !== viewedSha) ||
+      (viewedSha && latestSha && viewedSha !== latestSha);
+    if (changed) {
+      showToast("PR has new commits since you loaded it — reload to review them", false);
+      return;
+    }
+
+    const dialog = await showReviewDialog(button);
+    if (!dialog) return;
+    const approve = dialog.querySelector('input[name="reviewEvent"][value="approve"]');
+    if (!approve) {
+      showToast("Couldn't find GitHub's Approve option", false);
+      return;
+    }
+    if (isDisabled(approve)) {
+      showToast("GitHub won't let you approve this PR (your own, closed, or no permission)", false);
+      return;
+    }
+
+    await settingsLoaded;
+    if (!approve.checked) approve.click();
+
+    // Keep anything you've typed in the review box; otherwise use the
+    // configured message.
+    const body = dialog.querySelector("textarea");
+    if (body && !body.value.trim() && approveMessage) typeInto(body, approveMessage);
+
+    const submit = await waitFor(() => {
+      const el = dialog.querySelector(REVIEW_SUBMIT);
+      return el && approve.checked && !isDisabled(el) ? el : null;
+    }, 1000, 50);
+    if (!submit) {
+      showToast("Couldn't submit GitHub's review dialog", false);
+      return;
+    }
+    showToast("Submitting approval...");
+    submit.click();
+  }
+
+  async function openReviewDialog(button) {
+    const dialog = await showReviewDialog(button);
+    if (!dialog) return;
+    // Switch back from Preview if it was left selected.
+    const writeTab = [...dialog.querySelectorAll('[role="tab"]')].find((tab) => tab.textContent.trim() === "Write");
+    if (writeTab && writeTab.getAttribute("aria-selected") !== "true") writeTab.click();
+
+    const body = await waitFor(() => {
+      const textarea = dialog.querySelector("textarea");
+      return textarea && isShown(textarea) ? textarea : null;
+    }, 1000, 50);
+    if (!body) {
+      showToast("Couldn't find GitHub's review comment box", false);
+      return;
+    }
+    body.focus();
+    body.setSelectionRange(body.value.length, body.value.length);
+  }
+
   async function openReview() {
     const form = document.getElementById("pull_requests_submit_review");
     if (!form) {
-      switchToFilesTab("review");
+      const button = document.querySelector(REVIEW_BUTTON);
+      if (button) openReviewDialog(button);
+      else if (!noReviewHere()) switchToFilesTab("review");
       return;
     }
     const body = form.querySelector('textarea[name="pull_request_review[body]"]');
@@ -260,7 +366,11 @@
     if (onTab(tab)) return;
     const targets = [prPath() + TABS[tab]];
     if (tab === "files") targets.push(prPath() + "/changes");
-    const link = [...document.querySelectorAll('a.tabnav-tab, a[class*="TabNavLink"]')].find((a) =>
+    const link = [
+      ...document.querySelectorAll(
+        'a.tabnav-tab, a[class*="TabNavLink"], a[data-dd-action-name^="pull_requests.navigation."]'
+      ),
+    ].find((a) =>
       targets.includes(a.pathname.replace(/\/$/, ""))
     );
     if (link) link.click();
