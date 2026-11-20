@@ -26,7 +26,7 @@ To write a review rather than approve, press the second shortcut (default `Ctrl+
 | Files changed | `Ctrl+Shift+4` |
 | Files changed, only changes since your last review | `Ctrl+Shift+L` |
 
-`Ctrl+Shift+L` picks **Show changes since your last review** from the Files changed tab's **Changes from** menu, switching to Files changed first if needed. If you haven't reviewed the PR yet, it says so. It doesn't work on GitHub's newer PR pages yet, which replaced that menu.
+`Ctrl+Shift+L` picks **Changes since your last review** from the Files changed tab's commit picker (**All commits** on GitHub's newer pages, **Changes from** on older ones), switching to Files changed first if needed. If you haven't reviewed the PR yet, it says so.
 
 These don't fire while you're typing in a text box. The approve and write review shortcuts do work while typing.
 
@@ -55,6 +55,7 @@ Both sync across your Chrome profiles.
 | --- | --- |
 | `Switching to Files changed to approve...` | You pressed it on another tab; the approval finishes after the switch. |
 | `No changes since your last review, or you haven't reviewed this PR yet` | GitHub's menu has no "since your last review" option for this PR. |
+| `Already showing changes since your last review` | Files changed is already limited to what's new since your last review. |
 | `Switching to Files changed to open your review...` | You pressed the write review shortcut on another tab; the review box opens after the switch. |
 | `Switching to Files changed — press the shortcut again there` | The tab you were on didn't show which commit it was displaying, so it won't approve unattended. Press again once Files changed loads. |
 | `Couldn't find GitHub's review form on Files changed` | Files changed didn't show the review form within 10 seconds of switching. |
@@ -83,7 +84,7 @@ The write review shortcut uses the same form or dialog: it clicks GitHub's **Rev
 
 ## History
 
-Based on [be0x74a/github-pr-quick-approve](https://github.com/be0x74a/github-pr-quick-approve) v2.0.1 (MIT). v3.0.0 replaces the personal access token and REST API with GitHub's own review form, because orgs may not allow personal access tokens. Tokens saved by earlier versions are deleted on update. v3.1.0 adds the write review shortcut. v3.2.0 adds tab shortcuts and moves every default to Ctrl+Shift (approve was `⌘⇧U` / `Alt+Shift+U`). v3.3.0 adds the since-last-review shortcut. v3.3.1 supports GitHub's newer PR pages for approve, write review and tab switching.
+Based on [be0x74a/github-pr-quick-approve](https://github.com/be0x74a/github-pr-quick-approve) v2.0.1 (MIT). v3.0.0 replaces the personal access token and REST API with GitHub's own review form, because orgs may not allow personal access tokens. Tokens saved by earlier versions are deleted on update. v3.1.0 adds the write review shortcut. v3.2.0 adds tab shortcuts and moves every default to Ctrl+Shift (approve was `⌘⇧U` / `Alt+Shift+U`). v3.3.0 adds the since-last-review shortcut. v3.3.1 supports GitHub's newer PR pages for approve, write review and tab switching, and v3.3.2 for the since-last-review shortcut.
 
 ## License
 

@@ -114,7 +114,7 @@
     }
     if (!isPRPage() || pending.path !== prPath() || Date.now() - pending.at > PENDING_MAX_AGE_MS) return;
     if (pending.action === "sinceReview") {
-      await waitFor(() => sinceReviewItem() || changesMenuToggle(), 10000);
+      await waitFor(() => document.querySelector(CHANGES_SELECTOR) || sinceReviewItem() || changesMenuToggle(), 10000);
       showChangesSinceReview();
       return;
     }
@@ -397,9 +397,74 @@
     );
   }
 
+  // GitHub's newer Files changed page replaces the menu with a "Select
+  // commits to view" dialog. Picking the option applies it and closes the
+  // dialog; Save is only a fallback in case that changes.
+  const CHANGES_SELECTOR = "#changes-selector-button";
+
+  function sinceReviewOption() {
+    return (
+      [...document.querySelectorAll('[role="dialog"] [role="option"]')].find((el) =>
+        SINCE_REVIEW_TEXT.test(el.textContent)
+      ) || null
+    );
+  }
+
+  function buttonLabeled(root, label) {
+    return [...root.querySelectorAll("button")].find((b) => b.textContent.trim() === label) || null;
+  }
+
+  async function showChangesSinceReviewInDialog(selector) {
+    selector.click();
+    const option = await waitFor(sinceReviewOption, 3000, 100);
+    if (!option) {
+      showToast("Couldn't find GitHub's \"Changes since your last review\" option", false);
+      return;
+    }
+    const dialog = option.closest('[role="dialog"]');
+    const close = () =>
+      (buttonLabeled(dialog, "Cancel") || dialog.querySelector('[data-component="Dialog.CloseButton"]'))?.click();
+    if (isDisabled(option)) {
+      close();
+      showToast("No changes since your last review, or you haven't reviewed this PR yet", false);
+      return;
+    }
+    if (option.getAttribute("aria-selected") === "true") {
+      close();
+      showToast("Already showing changes since your last review");
+      return;
+    }
+    option.click();
+    const closed = () => !dialog.isConnected || !isShown(dialog);
+    const done = await waitFor(
+      () => closed() || (option.getAttribute("aria-selected") === "true" && buttonLabeled(dialog, "Save")),
+      2000,
+      50
+    );
+    if (!done) {
+      close();
+      showToast("Couldn't select \"Changes since your last review\"", false);
+      return;
+    }
+    if (!closed()) done.click();
+  }
+
   async function showChangesSinceReview() {
     if (!onTab("files")) {
+      // On the newer pages, switch tabs in place and carry on there.
+      if (document.querySelector(REVIEW_BUTTON)) {
+        switchTab("files");
+        const selector = await waitFor(() => onTab("files") && document.querySelector(CHANGES_SELECTOR), 10000);
+        if (selector) showChangesSinceReviewInDialog(selector);
+        else switchToFilesTab("sinceReview");
+        return;
+      }
       switchToFilesTab("sinceReview");
+      return;
+    }
+    const selector = document.querySelector(CHANGES_SELECTOR);
+    if (selector) {
+      showChangesSinceReviewInDialog(selector);
       return;
     }
     let item = sinceReviewItem();
