@@ -84,7 +84,7 @@ The write review shortcut uses the same form or dialog: it clicks GitHub's **Rev
 
 ## History
 
-Based on [be0x74a/github-pr-quick-approve](https://github.com/be0x74a/github-pr-quick-approve) v2.0.1 (MIT). v3.0.0 replaces the personal access token and REST API with GitHub's own review form, because orgs may not allow personal access tokens. Tokens saved by earlier versions are deleted on update. v3.1.0 adds the write review shortcut. v3.2.0 adds tab shortcuts and moves every default to Ctrl+Shift (approve was `⌘⇧U` / `Alt+Shift+U`). v3.3.0 adds the since-last-review shortcut. v3.3.1 supports GitHub's newer PR pages for approve, write review and tab switching, and v3.3.2 for the since-last-review shortcut.
+Based on [be0x74a/github-pr-quick-approve](https://github.com/be0x74a/github-pr-quick-approve) v2.0.1 (MIT). v3.0.0 replaces the personal access token and REST API with GitHub's own review form, because orgs may not allow personal access tokens. Tokens saved by earlier versions are deleted on update. v3.1.0 adds the write review shortcut. v3.2.0 adds tab shortcuts and moves every default to Ctrl+Shift (approve was `⌘⇧U` / `Alt+Shift+U`). v3.3.0 adds the since-last-review shortcut. v3.3.1 supports GitHub's newer PR pages for approve, write review and tab switching, and v3.3.2 for the since-last-review shortcut. v3.3.3 follows GitHub's rename of the attribute on those pages' buttons.
 
 ## License
 

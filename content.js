@@ -227,9 +227,13 @@
   // cursor in its comment box, ready to type. Doesn't select or submit
   // anything.
   // GitHub's newer PR pages have a Review button on every tab that opens a
-  // dialog, instead of the Review changes form on Files changed.
-  const REVIEW_BUTTON = 'button[data-dd-action-name="pull_requests.review.open"]';
-  const REVIEW_SUBMIT = 'button[data-dd-action-name="pull_requests.review.submit"]';
+  // dialog, instead of the Review changes form on Files changed. Their
+  // buttons and tab links are tagged data-telemetry-action (earlier,
+  // data-dd-action-name), so match either.
+  const actionSelector = (tag, action, op = "=") =>
+    ["data-telemetry-action", "data-dd-action-name"].map((attr) => `${tag}[${attr}${op}"${action}"]`).join(", ");
+  const REVIEW_BUTTON = actionSelector("button", "pull_requests.review.open");
+  const REVIEW_SUBMIT = actionSelector("button", "pull_requests.review.submit");
 
   function reviewDialog() {
     return document.querySelector(REVIEW_SUBMIT)?.closest('dialog, [role="dialog"]') || null;
@@ -368,7 +372,7 @@
     if (tab === "files") targets.push(prPath() + "/changes");
     const link = [
       ...document.querySelectorAll(
-        'a.tabnav-tab, a[class*="TabNavLink"], a[data-dd-action-name^="pull_requests.navigation."]'
+        `a.tabnav-tab, a[class*="TabNavLink"], ${actionSelector("a", "pull_requests.navigation.", "^=")}`
       ),
     ].find((a) =>
       targets.includes(a.pathname.replace(/\/$/, ""))
